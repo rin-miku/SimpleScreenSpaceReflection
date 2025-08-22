@@ -14,9 +14,6 @@ public class SimpleSSRRendererFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        if (settings.enableSSR)
-        {
-            renderer.EnqueuePass(simpleSSRRenderPass);
-        }       
+        renderer.EnqueuePass(simpleSSRRenderPass);
     }
 }

@@ -26,7 +26,6 @@ public class SimpleSSRRenderPass : ScriptableRenderPass
     public SimpleSSRRenderPass(SimpleSSRSettings simpleSSRSettings)
     {
         settings = simpleSSRSettings;
-        blitSSRMaterial = new Material(Shader.Find("Custom/BlitSSR"));
 
         threadGroupsX = Screen.width / NUMTHREAD_X;
         threadGroupsY = Screen.height / NUMTHREAD_Y;
@@ -70,6 +69,7 @@ public class SimpleSSRRenderPass : ScriptableRenderPass
             builder.SetGlobalTextureAfterPass(_SSRColorTexture, Shader.PropertyToID("_SSRColorTexture"));
         }
 
+        if (blitSSRMaterial == null) blitSSRMaterial = new Material(Shader.Find("Custom/BlitSSR"));
         TextureHandle blendColor = UniversalRenderer.CreateRenderGraphTexture(renderGraph, descriptor, "_BlendSSRColor", true);
         BlitMaterialParameters blitMaterialParameters = new BlitMaterialParameters(resourceData.activeColorTexture, blendColor, blitSSRMaterial, 0);
         renderGraph.AddBlitPass(blitMaterialParameters, "Blend SSR Color");
