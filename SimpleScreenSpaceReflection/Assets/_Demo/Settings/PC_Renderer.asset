@@ -67,7 +67,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   settings:
-    enableSSR: 1
     maxSteps: 512
     rayOffset: 0.2
     stepSize: 0.01

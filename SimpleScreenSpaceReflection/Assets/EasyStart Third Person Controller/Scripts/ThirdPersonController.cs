@@ -54,6 +54,12 @@ public class ThirdPersonController : MonoBehaviour
         // Message informing the user that they forgot to add an animator
         if (animator == null)
             Debug.LogWarning("Hey buddy, you don't have the Animator component in your player. Without it, the animations won't work.");
+
+        Material[] materials = transform.GetComponentInChildren<SkinnedMeshRenderer>().materials;
+        foreach(Material material in materials)
+        {
+            material.SetFloat("_Smoothness", 0f);
+        }
     }
 
 
