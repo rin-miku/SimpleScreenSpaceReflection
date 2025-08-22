@@ -1,0 +1,78 @@
+﻿#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
+
+#define NUMTHREAD_X 8
+#define NUMTHREAD_Y 8
+
+SamplerState PointClampSampler;
+SamplerState LinearClampSampler;
+
+RWTexture2D<half4> _SSRColorTexture;
+Texture2D<float> _CameraDepthTexture;
+Texture2D<float4> _CameraNormalsTexture;
+Texture2D<float4> _CameraOpaqueTexture;
+Texture2D<float4> _GBuffer2Texture;
+
+int _MaxSteps;
+float _RayOffset;
+float _StepSize; 
+float _Thickness;
+
+float SampleDepth(uint2 positionSS)
+{
+    return LOAD_TEXTURE2D_X(_CameraDepthTexture, positionSS).r;
+}
+
+float4 SampleNormal(uint2 positionSS)
+{
+    return LOAD_TEXTURE2D_X(_CameraNormalsTexture, positionSS);
+}
+
+float4 SampleGBuffer2(uint2 positionSS)
+{
+    return LOAD_TEXTURE2D_X(_GBuffer2Texture, positionSS);
+}
+
+#pragma kernel SimpleSSR
+[numthreads(NUMTHREAD_X, NUMTHREAD_Y, 1)]
+void SimpleSSR(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint2 positionSS = dispatchThreadId.xy;
+    _SSRColorTexture[positionSS] = 0;
+    
+    float2 uvSS = dispatchThreadId.xy / _ScreenSize.xy;
+    float depthWS = SampleDepth(positionSS);
+    float3 positionWS = ComputeWorldSpacePosition(uvSS, depthWS, unity_MatrixInvVP);
+    float3 viewWS = GetWorldSpaceNormalizeViewDir(positionWS);
+    float3 normalWS = SampleNormal(positionSS);
+    float3 reflectionWS = normalize(reflect(-viewWS, normalWS));
+    
+    float3 rayWS = positionWS + normalWS * _RayOffset;
+    for (int i = 0; i < _MaxSteps; i++)
+    {
+        rayWS += reflectionWS * _StepSize;
+        float3 rayCS = ComputeNormalizedDeviceCoordinatesWithZ(rayWS, unity_MatrixVP);
+        float rayDepth = rayCS.z;
+        float2 raySS = rayCS.xy * _ScreenSize.xy;
+        float sceneDepth = SampleDepth(raySS);
+        float delta = rayDepth - sceneDepth;
+        if (delta >= 0 && delta <= _Thickness)
+        {
+            float3 hitNormalWS = SampleNormal(raySS);
+            if (dot(hitNormalWS, reflectionWS) > 0)
+                break;
+            
+            float4 gBuffer2 = SampleGBuffer2(positionSS);
+            float smoothness = gBuffer2.a;
+            float perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(smoothness);
+            float ssrStrength = saturate(1.0 - perceptualRoughness * perceptualRoughness);
+
+            float4 color = _CameraOpaqueTexture.SampleLevel(LinearClampSampler, rayCS.xy, 0);
+            color.rgb *= ssrStrength;
+            color.a = ssrStrength;
+
+            _SSRColorTexture[positionSS] = color;
+            break;
+        }
+    }    
+}
